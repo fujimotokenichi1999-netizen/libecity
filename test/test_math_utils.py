@@ -4,12 +4,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.math_utils import add
+from src.math_utils import add, subtract
 
 
 class TestMathUtils(unittest.TestCase):
     def test_add(self):
         self.assertEqual(add(2, 3), 5)
+
+    def test_subtract(self):
+        self.assertEqual(subtract(5, 3), 2)
 
 
 if __name__ == "__main__":
