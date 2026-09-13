@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>血圧・体重・検査記録</title>
+<meta name="theme-color" content="#2563a8" />
+<meta name="description" content="血圧・体重・血液検査結果をスマホで記録する個人用ヘルスログアプリ" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" />
+<link rel="icon" href="icons/favicon-16.png" sizes="16x16" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="健康記録" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="app-header">
+  <h1>健康記録</h1>
+  <button id="menuBtn" class="icon-btn" aria-label="メニュー">⋮</button>
+</header>
+
+<div id="menuSheet" class="sheet hidden">
+  <button id="exportBtn" class="sheet-item">データをエクスポート</button>
+  <label class="sheet-item" for="importFile">データをインポート</label>
+  <input type="file" id="importFile" accept="application/json" hidden />
+  <button id="closeMenuBtn" class="sheet-item sheet-cancel">閉じる</button>
+</div>
+
+<main id="app">
+
+  <!-- 血圧タブ -->
+  <section id="tab-bp" class="tab-panel active">
+    <form id="bpForm" class="card form-card">
+      <h2>血圧を記録</h2>
+      <div class="field-row">
+        <label>日時
+          <input type="datetime-local" id="bpDatetime" required />
+        </label>
+      </div>
+      <div class="field-row three">
+        <label>上(収縮期)
+          <input type="number" id="bpSystolic" inputmode="numeric" min="40" max="300" required />
+        </label>
+        <label>下(拡張期)
+          <input type="number" id="bpDiastolic" inputmode="numeric" min="20" max="200" required />
+        </label>
+        <label>脈拍
+          <input type="number" id="bpPulse" inputmode="numeric" min="20" max="250" />
+        </label>
+      </div>
+      <div class="field-row">
+        <label>メモ
+          <input type="text" id="bpMemo" placeholder="任意" maxlength="200" />
+        </label>
+      </div>
+      <button type="submit" class="primary-btn">記録する</button>
+    </form>
+
+    <div class="card">
+      <h2>記録一覧</h2>
+      <div id="bpList" class="record-list"></div>
+    </div>
+  </section>
+
+  <!-- 体重タブ -->
+  <section id="tab-weight" class="tab-panel">
+    <form id="weightForm" class="card form-card">
+      <h2>体重を記録</h2>
+      <div class="field-row">
+        <label>日時
+          <input type="datetime-local" id="weightDatetime" required />
+        </label>
+      </div>
+      <div class="field-row">
+        <label>体重(kg)
+          <input type="number" id="weightValue" step="0.1" min="0" max="300" inputmode="decimal" required />
+        </label>
+      </div>
+      <div class="field-row">
+        <label>メモ
+          <input type="text" id="weightMemo" placeholder="任意" maxlength="200" />
+        </label>
+      </div>
+      <button type="submit" class="primary-btn">記録する</button>
+    </form>
+
+    <div class="card">
+      <h2>記録一覧</h2>
+      <div id="weightList" class="record-list"></div>
+    </div>
+  </section>
+
+  <!-- 血液検査画像タブ -->
+  <section id="tab-lab" class="tab-panel">
+    <form id="labForm" class="card form-card">
+      <h2>血液検査結果を取り込み</h2>
+      <div class="field-row">
+        <label>検査日
+          <input type="date" id="labDate" required />
+        </label>
+      </div>
+      <div class="field-row">
+        <label>画像
+          <input type="file" id="labFile" accept="image/*" capture="environment" required />
+        </label>
+      </div>
+      <div class="field-row">
+        <label>メモ
+          <input type="text" id="labMemo" placeholder="任意" maxlength="200" />
+        </label>
+      </div>
+      <button type="submit" class="primary-btn">保存する</button>
+    </form>
+
+    <div class="card">
+      <h2>検査結果一覧</h2>
+      <div id="labList" class="lab-grid"></div>
+    </div>
+  </section>
+
+  <!-- グラフタブ -->
+  <section id="tab-graph" class="tab-panel">
+    <div class="card">
+      <h2>血圧の推移</h2>
+      <canvas id="bpChart" class="chart" width="600" height="260"></canvas>
+      <div class="legend">
+        <span><i class="dot dot-sys"></i>上(収縮期)</span>
+        <span><i class="dot dot-dia"></i>下(拡張期)</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>体重の推移</h2>
+      <canvas id="weightChart" class="chart" width="600" height="260"></canvas>
+    </div>
+  </section>
+
+</main>
+
+<div id="imageModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button id="imageModalClose" class="icon-btn modal-close" aria-label="閉じる">×</button>
+    <img id="imageModalImg" alt="血液検査結果画像" />
+    <div id="imageModalMeta" class="modal-meta"></div>
+    <button id="imageModalDelete" class="danger-btn">この画像を削除</button>
+  </div>
+</div>
+
+<nav class="tabbar">
+  <button class="tab-btn active" data-tab="tab-bp">
+    <span class="tab-icon">🩺</span><span>血圧</span>
+  </button>
+  <button class="tab-btn" data-tab="tab-weight">
+    <span class="tab-icon">⚖️</span><span>体重</span>
+  </button>
+  <button class="tab-btn" data-tab="tab-lab">
+    <span class="tab-icon">🧪</span><span>検査画像</span>
+  </button>
+  <button class="tab-btn" data-tab="tab-graph">
+    <span class="tab-icon">📈</span><span>グラフ</span>
+  </button>
+</nav>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
