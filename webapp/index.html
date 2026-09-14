@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>毎日の食事記録</title>
+<meta name="theme-color" content="#d97757" />
+<meta name="description" content="料理写真からカロリーと栄養素を自動記録するアプリ" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" />
+<link rel="icon" href="icons/favicon-16.png" sizes="16x16" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="食事記録" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="app-header">
+  <h1>毎日の食事記録</h1>
+  <button id="menuBtn" class="icon-btn" aria-label="メニュー">⋮</button>
+</header>
+
+<div id="menuSheet" class="sheet hidden">
+  <button id="settingsBtn" class="sheet-item">APIキー設定</button>
+  <button id="exportBtn" class="sheet-item">データをエクスポート</button>
+  <label class="sheet-item" for="importFile">データをインポート</label>
+  <input type="file" id="importFile" accept="application/json" hidden />
+  <button id="closeMenuBtn" class="sheet-item sheet-cancel">閉じる</button>
+</div>
+
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button id="settingsClose" class="icon-btn modal-close" aria-label="閉じる">×</button>
+    <h2>AI解析の設定</h2>
+    <p class="modal-note">
+      写真の解析には Anthropic (Claude) の API を使います。APIキーはこの端末のブラウザ内にのみ保存され、
+      解析時にブラウザから Anthropic のサーバーへ直接送信されます(このアプリ自身のサーバーは経由しません)。
+      共有端末では入力しないでください。
+    </p>
+    <form id="settingsForm">
+      <div class="field-row">
+        <label>Anthropic APIキー
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+        </label>
+      </div>
+      <div class="field-row">
+        <label>モデル
+          <input type="text" id="modelInput" placeholder="claude-sonnet-5" />
+        </label>
+      </div>
+      <button type="submit" class="primary-btn">保存する</button>
+    </form>
+  </div>
+</div>
+
+<main id="app">
+  <section class="tab-panel active">
+    <div class="card">
+      <div class="field-row">
+        <label>日付
+          <input type="date" id="datePicker" />
+        </label>
+      </div>
+
+      <label class="upload-area" id="uploadArea" for="fileInput">
+        <input type="file" id="fileInput" accept="image/*" />
+        <div id="uploadLabel">📷 タップして食事の写真をアップロード</div>
+      </label>
+      <div class="status" id="uploadStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>その日の合計</h2>
+      <div class="summary-grid" id="summaryGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>記録一覧</h2>
+      <div id="mealList" class="record-list"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
