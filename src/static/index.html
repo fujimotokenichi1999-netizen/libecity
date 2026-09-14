@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>毎日の食事記録</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f7f5f2;
+    --card: #ffffff;
+    --text: #2b2b2b;
+    --muted: #767676;
+    --accent: #d97757;
+    --border: #e6e1da;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+    padding-bottom: 48px;
+  }
+  h1 {
+    font-size: 1.3rem;
+    margin: 0 0 16px;
+  }
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  input[type="date"] {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 1rem;
+  }
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+  }
+  .upload-area:hover { border-color: var(--accent); }
+  input[type="file"] { display: none; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 12px;
+    text-align: center;
+  }
+  .summary-item .value {
+    font-size: 1.4rem;
+    font-weight: 600;
+  }
+  .summary-item .label {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .meal-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .meal-item:last-child { border-bottom: none; }
+  .meal-item img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  .meal-info { flex: 1; min-width: 0; }
+  .meal-name { font-weight: 600; }
+  .meal-nutrients {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .delete-btn {
+    background: none;
+    color: var(--muted);
+    padding: 4px 8px;
+    font-size: 0.85rem;
+  }
+  .status {
+    font-size: 0.9rem;
+    color: var(--muted);
+    min-height: 1.2em;
+  }
+  .error { color: #c0392b; }
+  .empty { color: var(--muted); text-align: center; padding: 16px 0; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>毎日の食事記録</h1>
+
+    <div class="card">
+      <div class="row" style="justify-content: space-between; margin-bottom: 12px;">
+        <label for="date-picker" style="font-weight: 600;">日付</label>
+        <input type="date" id="date-picker" />
+      </div>
+
+      <label class="upload-area" id="upload-area">
+        <input type="file" id="file-input" accept="image/*" capture="environment" />
+        <div id="upload-label">📷 タップして食事の写真をアップロード</div>
+      </label>
+      <div class="status" id="upload-status"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight: 600; margin-bottom: 12px;">今日の合計</div>
+      <div class="summary-grid" id="summary-grid"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight: 600; margin-bottom: 8px;">記録一覧</div>
+      <div id="meal-list"></div>
+    </div>
+  </div>
+
+<script>
+  const datePicker = document.getElementById('date-picker');
+  const fileInput = document.getElementById('file-input');
+  const uploadStatus = document.getElementById('upload-status');
+  const uploadLabel = document.getElementById('upload-label');
+  const summaryGrid = document.getElementById('summary-grid');
+  const mealList = document.getElementById('meal-list');
+
+  function todayStr() {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - offset * 60000);
+    return local.toISOString().slice(0, 10);
+  }
+
+  datePicker.value = todayStr();
+
+  const SUMMARY_FIELDS = [
+    { key: 'calories_kcal', label: 'カロリー(kcal)' },
+    { key: 'protein_g', label: 'タンパク質(g)' },
+    { key: 'fat_g', label: '脂質(g)' },
+    { key: 'carbs_g', label: '炭水化物(g)' },
+    { key: 'sodium_mg', label: '塩分(mg)' },
+  ];
+
+  function formatNumber(value) {
+    if (value === null || value === undefined) return '-';
+    return Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 });
+  }
+
+  async function loadSummary(date) {
+    const res = await fetch(`/api/summary?meal_date=${date}`);
+    const data = await res.json();
+    summaryGrid.innerHTML = SUMMARY_FIELDS.map(f => `
+      <div class="summary-item">
+        <div class="value">${formatNumber(data[f.key])}</div>
+        <div class="label">${f.label}</div>
+      </div>
+    `).join('');
+  }
+
+  async function loadMeals(date) {
+    const res = await fetch(`/api/meals?meal_date=${date}`);
+    const meals = await res.json();
+    if (meals.length === 0) {
+      mealList.innerHTML = '<div class="empty">この日の記録はまだありません</div>';
+      return;
+    }
+    mealList.innerHTML = meals.map(m => `
+      <div class="meal-item" data-id="${m.id}">
+        <img src="/api/meals/${m.id}/image" alt="${m.dish_name || ''}" />
+        <div class="meal-info">
+          <div class="meal-name">${m.dish_name || '不明'}</div>
+          <div class="meal-nutrients">
+            ${formatNumber(m.calories_kcal)} kcal ・
+            P ${formatNumber(m.protein_g)}g ・
+            F ${formatNumber(m.fat_g)}g ・
+            C ${formatNumber(m.carbs_g)}g ・
+            塩分 ${formatNumber(m.sodium_mg)}mg
+          </div>
+        </div>
+        <button class="delete-btn" onclick="deleteMeal(${m.id})">削除</button>
+      </div>
+    `).join('');
+  }
+
+  async function refresh() {
+    const date = datePicker.value;
+    await Promise.all([loadSummary(date), loadMeals(date)]);
+  }
+
+  async function deleteMeal(id) {
+    if (!confirm('この記録を削除しますか?')) return;
+    await fetch(`/api/meals/${id}`, { method: 'DELETE' });
+    refresh();
+  }
+  window.deleteMeal = deleteMeal;
+
+  datePicker.addEventListener('change', refresh);
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    uploadLabel.textContent = '解析中... しばらくお待ちください';
+    uploadStatus.textContent = '';
+    uploadStatus.classList.remove('error');
+    fileInput.disabled = true;
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch(`/api/meals?meal_date=${datePicker.value}`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `アップロードに失敗しました (${res.status})`);
+      }
+      uploadStatus.textContent = '記録しました';
+      await refresh();
+    } catch (e) {
+      uploadStatus.textContent = e.message;
+      uploadStatus.classList.add('error');
+    } finally {
+      uploadLabel.textContent = '📷 タップして食事の写真をアップロード';
+      fileInput.disabled = false;
+      fileInput.value = '';
+    }
+  });
+
+  refresh();
+</script>
+</body>
+</html>
