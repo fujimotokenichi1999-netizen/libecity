@@ -56,6 +56,75 @@
     toastTimer = setTimeout(() => toast.classList.add("hidden"), 2200);
   }
 
+  // ---------- CSVエクスポート ----------
+
+  function csvEscape(value) {
+    const str = value === null || value === undefined ? "" : String(value);
+    if (/[",\n]/.test(str)) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  function rowsToCsv(headers, rows) {
+    const lines = [headers.map(csvEscape).join(",")];
+    rows.forEach((row) => {
+      lines.push(row.map(csvEscape).join(","));
+    });
+    return "﻿" + lines.join("\r\n") + "\r\n";
+  }
+
+  function downloadTextFile(filename, text, mimeType) {
+    const blob = new Blob([text], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportBloodPressureCsv() {
+    const stamp = toDateInputValue(new Date());
+    const bpRecords = await DB.getAll(DB.STORES.bloodPressure);
+    bpRecords.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+    const bpCsv = rowsToCsv(
+      ["日時", "上(収縮期)", "下(拡張期)", "脈拍", "メモ"],
+      bpRecords.map((r) => [
+        formatDatetime(r.datetime),
+        r.systolic,
+        r.diastolic,
+        r.pulse ?? "",
+        r.memo ?? "",
+      ])
+    );
+    downloadTextFile(`blood-pressure-${stamp}.csv`, bpCsv, "text/csv");
+  }
+
+  async function exportWeightCsv() {
+    const stamp = toDateInputValue(new Date());
+    const weightRecords = await DB.getAll(DB.STORES.weight);
+    weightRecords.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+    const weightCsv = rowsToCsv(
+      ["日時", "体重(kg)", "メモ"],
+      weightRecords.map((r) => [formatDatetime(r.datetime), r.weight, r.memo ?? ""])
+    );
+    downloadTextFile(`weight-${stamp}.csv`, weightCsv, "text/csv");
+  }
+
+  async function exportLabImagesCsv() {
+    const stamp = toDateInputValue(new Date());
+    const labRecords = await DB.getAll(DB.STORES.labImages);
+    labRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
+    const labCsv = rowsToCsv(
+      ["検査日", "ファイル名", "メモ"],
+      labRecords.map((r) => [formatDate(r.date), r.fileName ?? "", r.memo ?? ""])
+    );
+    downloadTextFile(`lab-images-${stamp}.csv`, labCsv, "text/csv");
+  }
+
   // ---------- タブ切り替え ----------
 
   function initTabs() {
@@ -87,6 +156,24 @@
 
     menuBtn.addEventListener("click", () => sheet.classList.toggle("hidden"));
     closeBtn.addEventListener("click", () => sheet.classList.add("hidden"));
+
+    const csvButtons = [
+      [document.getElementById("exportCsvBpBtn"), exportBloodPressureCsv],
+      [document.getElementById("exportCsvWeightBtn"), exportWeightCsv],
+      [document.getElementById("exportCsvLabBtn"), exportLabImagesCsv],
+    ];
+    csvButtons.forEach(([btn, exportFn]) => {
+      btn.addEventListener("click", async () => {
+        sheet.classList.add("hidden");
+        try {
+          await exportFn();
+          showToast("CSVをエクスポートしました");
+        } catch (e) {
+          console.error(e);
+          showToast("CSVエクスポートに失敗しました");
+        }
+      });
+    });
 
     exportBtn.addEventListener("click", async () => {
       sheet.classList.add("hidden");
