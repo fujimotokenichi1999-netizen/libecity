@@ -202,7 +202,14 @@ input:focus {
   color: var(--text-muted);
 }
 
-.record-delete {
+.record-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.record-delete,
+.record-speak {
   background: none;
   border: none;
   color: var(--text-muted);
@@ -213,6 +220,10 @@ input:focus {
 
 .record-delete:hover {
   color: var(--danger);
+}
+
+.record-speak:hover {
+  color: var(--accent);
 }
 
 .empty-state {

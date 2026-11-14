@@ -56,6 +56,58 @@
     toastTimer = setTimeout(() => toast.classList.add("hidden"), 2200);
   }
 
+  // ---------- 読み上げ(音声合成) ----------
+
+  function safeStorageGet(key, fallback) {
+    try {
+      const v = window.localStorage.getItem(key);
+      return v === null ? fallback : v;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function safeStorageSet(key, value) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch (e) {
+      // 無視(プライベートブラウズ等でlocalStorageが使えない場合)
+    }
+  }
+
+  function isTtsEnabled() {
+    return safeStorageGet("ttsEnabled", "true") === "true";
+  }
+
+  function setTtsEnabled(enabled) {
+    safeStorageSet("ttsEnabled", enabled ? "true" : "false");
+  }
+
+  function speak(text) {
+    if (!isTtsEnabled()) return;
+    if (!("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "ja-JP";
+      window.speechSynthesis.speak(utter);
+    } catch (e) {
+      console.warn("読み上げに失敗しました", e);
+    }
+  }
+
+  function initTtsToggle() {
+    const btn = document.getElementById("ttsToggleBtn");
+    const render = () => {
+      btn.textContent = `読み上げ: ${isTtsEnabled() ? "ON" : "OFF"}`;
+    };
+    render();
+    btn.addEventListener("click", () => {
+      setTtsEnabled(!isTtsEnabled());
+      render();
+    });
+  }
+
   // ---------- CSVエクスポート ----------
 
   function csvEscape(value) {
@@ -247,8 +299,14 @@
       form.reset();
       document.getElementById("bpDatetime").value = toDatetimeLocalValue(new Date());
       showToast("血圧を記録しました");
+      speak(bpSpeakText({ systolic, diastolic, pulse }));
       await renderBpList();
     });
+  }
+
+  function bpSpeakText(rec) {
+    const pulseText = rec.pulse ? `、脈拍${rec.pulse}` : "";
+    return `血圧、上${rec.systolic}、下${rec.diastolic}${pulseText}です`;
   }
 
   async function renderBpList() {
@@ -272,8 +330,14 @@
           <div class="record-date">${formatDatetime(rec.datetime)}</div>
           ${rec.memo ? `<div class="record-memo">${escapeHtml(rec.memo)}</div>` : ""}
         </div>
-        <button class="record-delete" aria-label="削除">🗑</button>
+        <div class="record-actions">
+          <button class="record-speak" aria-label="読み上げ">🔊</button>
+          <button class="record-delete" aria-label="削除">🗑</button>
+        </div>
       `;
+      item.querySelector(".record-speak").addEventListener("click", () => {
+        speak(bpSpeakText(rec));
+      });
       item.querySelector(".record-delete").addEventListener("click", async () => {
         if (!confirm("この記録を削除しますか?")) return;
         await DB.remove(DB.STORES.bloodPressure, rec.id);
@@ -309,8 +373,13 @@
       form.reset();
       document.getElementById("weightDatetime").value = toDatetimeLocalValue(new Date());
       showToast("体重を記録しました");
+      speak(weightSpeakText({ weight }));
       await renderWeightList();
     });
+  }
+
+  function weightSpeakText(rec) {
+    return `体重 ${rec.weight} キログラムです`;
   }
 
   async function renderWeightList() {
@@ -333,8 +402,14 @@
           <div class="record-date">${formatDatetime(rec.datetime)}</div>
           ${rec.memo ? `<div class="record-memo">${escapeHtml(rec.memo)}</div>` : ""}
         </div>
-        <button class="record-delete" aria-label="削除">🗑</button>
+        <div class="record-actions">
+          <button class="record-speak" aria-label="読み上げ">🔊</button>
+          <button class="record-delete" aria-label="削除">🗑</button>
+        </div>
       `;
+      item.querySelector(".record-speak").addEventListener("click", () => {
+        speak(weightSpeakText(rec));
+      });
       item.querySelector(".record-delete").addEventListener("click", async () => {
         if (!confirm("この記録を削除しますか?")) return;
         await DB.remove(DB.STORES.weight, rec.id);
@@ -594,6 +669,7 @@
   document.addEventListener("DOMContentLoaded", async () => {
     initTabs();
     initMenu();
+    initTtsToggle();
     initModal();
     initBpForm();
     initWeightForm();
